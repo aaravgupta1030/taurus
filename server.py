@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from src.models import CreatorCandidate
 from src.output_writer import write_outputs
 from src.pipeline import run_pipeline
-from src.utils import ROOT, load_env
+from src.utils import ROOT, load_env, outputs_dir
 
 # Ensure .env is loaded for early imports that read settings
 load_env()
@@ -88,7 +88,7 @@ def api_run(body: RunBody, background_tasks: BackgroundTasks):
 @app.get("/api/latest-files")
 def latest_files():
     """Paths to on-disk outputs after last CLI or API run (same folder)."""
-    out = ROOT / "outputs"
+    out = outputs_dir()
     return {
         "creators_json": str(out / "creators.json"),
         "creators_csv": str(out / "creators.csv"),

@@ -575,8 +575,8 @@ export default function App() {
             )}
 
             <p className="mt-12 text-center text-sm text-slate-500">
-              Files are also written to <span className="code-chip text-slate-300">outputs/creators.json</span>{" "}
-              and <span className="code-chip text-slate-300">outputs/creators.csv</span> on the server.
+              The server also persists JSON/CSV (see <span className="code-chip text-slate-300">/api/latest-files</span>
+              ); locally that is <span className="code-chip text-slate-300">outputs/</span>, on Vercel a temp folder.
             </p>
           </section>
         )}

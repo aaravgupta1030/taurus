@@ -36,7 +36,25 @@ def load_prompt(name: str) -> str:
 
 
 def outputs_dir() -> Path:
-    d = ROOT / "outputs"
+    """Writable directory for JSON/CSV/errors.log.
+
+    Vercel and AWS Lambda deploy the app under a read-only tree (e.g. /var/task);
+    use TMPDIR there. Override with OUTPUT_DIR or TAURUS_OUTPUT_DIR.
+    """
+    custom = (get_env("OUTPUT_DIR") or get_env("TAURUS_OUTPUT_DIR")).strip()
+    if custom:
+        d = Path(custom).expanduser()
+        if not d.is_absolute():
+            d = (ROOT / d).resolve()
+    elif (
+        get_env("VERCEL")
+        or get_env("VERCEL_ENV")
+        or get_env("AWS_LAMBDA_FUNCTION_NAME")
+        or get_env("AWS_EXECUTION_ENV")
+    ):
+        d = Path(os.environ.get("TMPDIR", "/tmp")) / "taurus-outputs"
+    else:
+        d = ROOT / "outputs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
