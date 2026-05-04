@@ -1,0 +1,76 @@
+# Timeouts and budgets
+http_timeout_seconds: 45
+min_creators_target: 10
+
+# Drop enriched profiles whose typical engagement is weak vs followers or (TikTok/YouTube) vs views.
+# TikTok/YouTube: looser floors. Instagram: own follower-ratio floor (slightly above legacy 0.0012).
+engagement_quality_gate:
+  enabled: true
+  # TikTok / YouTube only — (median avg_likes + avg_comments) / follower_count.
+  min_typical_post_engagement_over_followers: 0.00030
+  # Instagram only — original global default was 0.0012; this is a bit stricter for IG-only.
+  min_typical_post_engagement_over_followers_instagram: 0.0015
+  apply_view_gate_to_platforms: ["TikTok", "YouTube"]
+  min_view_based_engagement_rate: 0.02
+  min_view_based_engagement_rate_by_platform:
+    TikTok: 0.017
+    YouTube: 0.006
+
+# After scoring: optional extra cut on headline engagement_rate (same fraction the UI shows as %).
+# Off by default so quality_gate + scoring handle engagement; turn on if you want a hard UI floor.
+headline_engagement_floor:
+  enabled: false
+  min_fraction: 0.05
+  platforms: ["TikTok", "YouTube"]
+
+# Discovery recall (~2–3× default pool vs original 12×10 links)
+recall:
+  max_enriched_candidates: 56
+  # Keep enriching up to max(max_enriched_candidates, min_creators_target * multiplier) so gates can still yield 10+.
+  expand_collect_for_min_target: true
+  min_target_raw_multiplier: 8
+  serpapi_max_queries_per_phase: 20
+  serpapi_results_per_query: 12
+  max_links: 520
+  # Parallel HTTP (enrich + score). Higher = faster; Apify may rate-limit if too high (try 3–6).
+  enrich_workers: 5
+  score_workers: 6
+  expansion:
+    enabled: true
+    max_queries: 14
+
+# Weighted re-rank (normalized sub-scores). Higher weight = more influence on final order.
+# Engagement is up-weighted for “consistent views / engagement” vs one viral spike (median logic already in scorer).
+rerank:
+  enabled: true
+  weights:
+    relevance: 1.05
+    audience_fit: 1.05
+    creator_size: 0.9
+    engagement_quality: 1.5
+    content_quality: 1.0
+    commercial_fit: 1.0
+    brand_safety: 1.0
+
+# Global linear calibration applied to weighted rank (0–100). Same mapping every run.
+# Tune slope/intercept against your historical score distribution if needed.
+calibration:
+  enabled: true
+  slope: 1.07
+  intercept: 5
+
+# Apify actors (override if your account uses different actors)
+apify:
+  tiktok_actor: "clockworks/tiktok-profile-scraper"
+  instagram_actor: "apify/instagram-scraper"
+  max_wait_seconds: 300
+  # How often we poll Apify while a run is in progress (smaller = faster finish detection, more API calls).
+  poll_interval_seconds: 2
+
+youtube:
+  recent_videos_limit: 8
+
+retry:
+  max_attempts: 4
+  base_delay_seconds: 1.0
+  max_delay_seconds: 30.0

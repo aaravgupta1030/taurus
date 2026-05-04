@@ -1,0 +1,7 @@
+Write a 1–2 sentence outreach-oriented explanation for why this creator fits (or partly fits) the user's query.
+
+Requirements:
+- Mention concrete evidence: niche themes, audience signals, follower tier if known, engagement signals if visible, commercial/review behavior if visible.
+- If brand safety concerns exist (from the breakdown), mention them briefly.
+- Avoid generic fluff like "they are a good creator".
+- Do not restate the entire JSON breakdown verbatim.

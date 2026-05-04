@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply min-h-screen text-slate-100 antialiased;
+  background-color: #030712;
+  background-image:
+    radial-gradient(ellipse 100% 70% at 50% -15%, rgba(16, 185, 129, 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 45% at 100% 20%, rgba(45, 212, 191, 0.08), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 0% 60%, rgba(139, 92, 246, 0.06), transparent 45%),
+    linear-gradient(180deg, #0f172a 0%, #030712 35%, #020617 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 85% 65% at 50% 0%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 0%, black 20%, transparent 70%);
+}
+
+/* Legacy glass — search + cards use dedicated classes */
+.glass {
+  @apply border border-slate-700/50 bg-slate-900/70 shadow-2xl backdrop-blur-xl;
+}
+
+.search-pill {
+  @apply flex flex-col gap-2 rounded-2xl border border-emerald-500/25 bg-slate-900/50 p-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_25px_50px_-12px_rgba(0,0,0,0.55),0_0_60px_-20px_rgba(16,185,129,0.25)] backdrop-blur-xl sm:flex-row sm:items-stretch sm:rounded-full;
+}
+
+.search-pill-input {
+  @apply min-h-[52px] flex-1 rounded-xl border-0 bg-slate-950/60 px-5 text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 sm:rounded-l-full sm:rounded-r-none sm:bg-transparent;
+}
+
+.search-pill-btn {
+  @apply min-h-[52px] shrink-0 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-8 font-display text-base font-semibold text-white shadow-lg shadow-emerald-950/50 transition hover:from-teal-500 hover:to-emerald-500 hover:shadow-emerald-900/40 disabled:cursor-not-allowed disabled:opacity-40 sm:rounded-l-none sm:rounded-r-full;
+}
+
+.creator-card {
+  @apply relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-b from-slate-900/90 to-slate-950/95 p-6 shadow-[0_25px_60px_-20px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-xl transition duration-300 md:p-8;
+  @apply hover:border-emerald-500/30 hover:shadow-[0_28px_64px_-18px_rgba(0,0,0,0.7),0_0_50px_-18px_rgba(16,185,129,0.12)];
+}
+
+.creator-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 50% at 100% 0%, rgba(16, 185, 129, 0.06), transparent 50%);
+  opacity: 0.9;
+}
+
+.creator-card-inner {
+  @apply relative z-[1];
+}
+
+.code-chip {
+  @apply inline rounded-md border border-slate-600/70 bg-slate-900/90 px-2 py-0.5 font-mono text-[0.8125rem] text-emerald-200/90 shadow-inner shadow-black/20;
+}
+
+.results-toolbar {
+  @apply flex flex-wrap items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/60 p-1 shadow-lg shadow-black/30 backdrop-blur-md;
+}
+
+.results-toolbar-btn {
+  @apply rounded-full px-4 py-2 text-sm font-medium transition;
+}
+
+.table-shell {
+  @apply overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-950/40 shadow-[0_25px_50px_-20px_rgba(0,0,0,0.55),0_0_0_1px_rgba(16,185,129,0.08)] backdrop-blur-sm;
+}

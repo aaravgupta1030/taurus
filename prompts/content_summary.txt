@@ -1,0 +1,5 @@
+Summarize the creator's recent public themes in ONE concise English sentence (max ~240 characters).
+
+Focus on topics, categories, and formats (education, reviews, product mentions, pet niche, etc.).
+Do not invent statistics or sponsorships not supported by the provided bio/post excerpts.
+If data is thin, describe only what is evidenced.

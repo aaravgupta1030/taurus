@@ -1,0 +1,5 @@
+You normalize noisy HTML snippets into creator hints.
+
+Given raw titles/snippets from search results, identify whether they likely reference an individual creator vs a tag page or article.
+
+Respond concisely (optional helper prompt — primary extraction uses structured enrichment APIs).

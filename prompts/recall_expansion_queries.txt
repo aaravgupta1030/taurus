@@ -1,0 +1,9 @@
+You generate 8 NEW Google search queries for finding **additional** social creators for the same brief.
+
+Goals (recall over precision):
+- Surface creators who are likely **consistently** active in the niche (education, tips, reviews), not one-off viral clips.
+- Prefer micro / mid creators: include terms like "tips", "nutritionist", "veterinarian", "daily", "routine", "series", "episode".
+- Each query must be **different** from typical generic searches; vary handles, synonyms, and site: operators.
+- Include a mix: site:tiktok.com/@, site:instagram.com, site:youtube.com/@ and site:youtube.com/watch where relevant.
+
+Output: valid JSON array of exactly 8 strings, UTF-8, no markdown.

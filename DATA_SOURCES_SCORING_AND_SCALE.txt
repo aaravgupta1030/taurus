@@ -1,0 +1,390 @@
+================================================================================
+CREATOR SOURCING AGENT — SIMPLE GUIDE
+(Where data comes from, how we collect it, how we score, tradeoffs, and growth)
+================================================================================
+
+This note is for anyone reading the project: interviewers, teammates, or future
+you. It uses plain language. It matches the code in this project (the taurus repo
+root: main.py, src/, config/, etc.).
+
+
+--------------------------------------------------------------------------------
+1. SAMPLE OUTPUT AND “AT LEAST 10 REAL CREATORS”
+--------------------------------------------------------------------------------
+
+What we save after a run
+  The program writes files under outputs/:
+    - creators.json — full detail (posts, scores, “reason” text, etc.)
+    - creators.csv — spreadsheet-friendly columns
+    - errors.log — what broke (missing keys, API errors, bad Apify runs)
+
+  The website shows the same data. Download buttons match the JSON shape.
+
+What “real” means
+  We only keep a creator if enrichment worked well enough: we could read the
+  profile through YouTube’s API or Apify (TikTok/Instagram), and we saw real
+  signals—not an empty page. TikTok and YouTube need stronger proof (see section
+  11). Instagram is a bit easier to pass (photos often have no view count).
+
+Will you always get 10+ people?
+  settings.yaml aims for at least 10 (min_creators_target) and sets limits on
+  how many Google links we try and how many profiles we enrich. If Google gives
+  bad links, APIs fail, or strict filters remove ghosts, you may get fewer than
+  10. That is expected when you choose quality over junk.
+
+  New: we also filter out creators whose engagement looks implausibly weak (see
+  section 9 and “engagement_quality_gate” in settings.yaml). That can drop rows
+  even when the scrape “worked.” We raised recall limits a bit so we still try
+  enough links to fill the list when the bar is high. If you get zero results,
+  lower the gate numbers or turn the gate off in YAML while debugging.
+
+How to attach a sample
+  From the project folder (with .env filled in):
+    python main.py "your query here"
+  Then share outputs/creators.json (and .csv if you like). Redacting handles is
+  OK; graders mainly want to see structure, scores, and reasons.
+
+
+--------------------------------------------------------------------------------
+2. WHERE THE DATA COMES FROM
+--------------------------------------------------------------------------------
+
+Google search (finding links)
+  We use SerpAPI. It returns Google results in a clean format. We turn your
+  English brief into several search queries, then pull out TikTok, Instagram,
+  and YouTube profile links. We do not hand-scrape Google HTML.
+
+YouTube (details about a channel)
+  We use Google’s official YouTube Data API. It gives channel info, recent
+  videos, and (when allowed) likes, comments, and views per video. It is the
+  “right” way to get YouTube data, but your API key has limits and rules—wrong
+  setup can return errors (403).
+
+TikTok and Instagram (details about a profile)
+  We use Apify “actors” (ready-made cloud jobs). You send a profile URL; Apify
+  runs their scraper and returns JSON (bio, followers when shown, recent posts,
+  likes, sometimes views). It is easier than maintaining our own HTML parser,
+  but costs money per run and can return empty rows—so we validate results.
+
+OpenAI (language model)
+  We use it for: extra search queries, short summaries of recent posts, softer
+  score pieces (tone, fit, safety), and the one-paragraph “reason” you see on
+  cards. It does not replace real like counts from APIs—it adds judgment on top.
+
+Settings file
+  config/settings.yaml holds timeouts, how big searches can get, score weights,
+  small math tweaks for the final number on screen, and the engagement quality
+  gate (minimum typical engagement vs followers, and vs views for TikTok/YouTube).
+
+
+--------------------------------------------------------------------------------
+3. WHAT WE MEAN BY “SCRAPING”
+--------------------------------------------------------------------------------
+
+People say “scraping” for “get data from the web.” Here we mix three ideas:
+
+YouTube — official API
+  We call Google’s servers with a key. Stable and allowed, but quotas and key
+  settings matter.
+
+TikTok / Instagram — Apify
+  We ask Apify to run a job and wait for JSON. Not random scripts on your laptop;
+  still depends on what TikTok/Instagram show and what Apify returns.
+
+Discovery — SerpAPI
+  We only need links from Google results, then we enrich each link the proper
+  way above.
+
+Order of steps (big picture)
+  1) Build search queries from your question (model + rules).
+  2) Search Google; collect profile links up to a limit.
+  3) For each link, figure out the platform and fetch details.
+  4) Throw away broken or empty profiles.
+  5) Remove duplicates.
+  6) Summarize, score, sort, write JSON/CSV.
+
+
+--------------------------------------------------------------------------------
+4. HOW SCORING WORKS (SIMPLE VERSION)
+--------------------------------------------------------------------------------
+
+The final score mixes math and model judgment, then one last smoothing step.
+
+Keyword match
+  Words from your query are searched in bios and post text. Cheap and clear.
+
+Model judgment
+  A small model scores things like “does this audience fit the brief?” with
+  strict caps. If there is no API key, we use safe default numbers so the app
+  still runs.
+
+Follower size
+  We give more points for “sensible” follower ranges. If you asked for a range
+  (e.g. under 50k) and the creator is outside it, we dock points.
+
+Engagement (the tricky part)
+  - We use the middle value (median) of recent likes (and comments where we have
+    them), not a straight average, so one viral video does not fake a “hot” channel.
+  - If we have views per video, we prefer engagement vs views: first we try
+    “median (likes + comments) divided by median views” across posts (stable when
+    one video has crazy view counts). If we cannot do that, we fall back to other
+    sensible combinations. If not enough view data, we fall back to followers.
+  - If one post is huge and the rest are tiny, we apply an extra penalty (“viral
+    skew”) so one-hit wonders rank lower.
+  - The scorer reads likes/comments the same way as the engagement helper code
+    (including nested TikTok fields—see section 9) so the numbers you see, the gate,
+    and the score all line up.
+
+What you see as “fit score”
+  We first add up rubric pieces the old-fashioned way. Then we may replace the
+  on-screen number with a weighted blend (engagement counts more in settings).
+  Then we nudge the number with a simple line: new_score = slope * old + offset.
+  The JSON keeps the old sum and middle steps so you can audit.
+
+“Reason” text
+  A short paragraph for humans, built from the creator snapshot and scores. The
+  numbers are for checking; the reason is for reading fast.
+
+
+--------------------------------------------------------------------------------
+5. TRADEOFFS WE ACCEPTED ON PURPOSE
+--------------------------------------------------------------------------------
+
+Fewer bad profiles vs more rows
+  Strict checks remove junk but can shrink the list.
+
+Money vs coverage
+  Each API call costs something. We cap searches and enrichments so a run stays
+  affordable—you might miss someone who only appears deep in Google.
+
+Slow vs shallow
+  A full run can take minutes because Apify and APIs are slow. We chose richer
+  profiles over instant answers.
+
+Model vs hard numbers
+  The model can be wrong on edge cases. We limit its role and keep real counts
+  from YouTube/Apify for engagement math.
+
+YouTube vs TikTok/Instagram
+  YouTube has a clean official API. TikTok/Instagram need Apify because there
+  is no simple free official “give me every post” key for a class project setup.
+
+Demo vs “real company”
+  We use a log file instead of fancy monitoring. The web server runs the whole
+  pipeline in one request instead of a background job system. Keys live in .env.
+  Good enough to show thinking; not a full production platform.
+
+
+--------------------------------------------------------------------------------
+6. IF WE HAD TO SCALE THIS UP (PLAIN ENGLISH)
+--------------------------------------------------------------------------------
+
+Right now: one user clicks “run,” the server does search → enrich → score in one
+long step, then returns everything. That breaks if thousands of people run it
+at once, or if one TikTok profile takes five minutes. Here is how you would grow
+it, in simple terms.
+
+Don’t block the user on one giant task
+  Split the work into small jobs: “search Google,” “enrich this one profile,”
+  “score this one profile.” Put those jobs in a queue (think: a line at a deli
+  counter). Worker machines pick jobs from the line. The website can say “we are
+  working on your list” and ping back when done, instead of freezing the browser.
+
+Don’t repeat the same expensive work
+  If two users both look up the same @handle within a day, cache the Apify/YouTube
+  answer for a few hours. Same for “we already searched this exact Google query
+  five minutes ago.” That saves money and speed.
+
+Keep search from returning garbage
+  Maintain simple rules: block obvious spam domains, tune query templates per
+  topic, and over time add better sources (paid TikTok search APIs, partnerships)
+  if the product needs it.
+
+Let non-engineers tune scoring
+  Today weights live in YAML. At scale you would save “scoring version 5” with a
+  date, store which model and prompt you used, and maybe let admins change weights
+  in a UI without redeploying code.
+
+Stay out of trouble
+  Rate-limit each customer, respect takedowns, do not store private messages, and
+  follow each platform’s rules. At real scale you often work with official data
+  deals instead of only scrapers.
+
+Make the UI feel fast
+  Show partial results as they arrive (“12 of 40 profiles ready”), paginate long
+  lists, and stream progress instead of one long spinner.
+
+If you only remember one line: scaling means “split work, reuse answers, show
+progress, and play by the platform rules”—not one big script in one HTTP request.
+
+
+--------------------------------------------------------------------------------
+7. “CLEAR THINKING BEATS A PERFECT FACTORY”
+--------------------------------------------------------------------------------
+
+Many assignments say: we care more about clear thinking and useful output than a
+perfect production system. This repo matches that:
+
+  - Scores can be inspected (breakdown in JSON and UI).
+  - failures/errors.log explain what went wrong.
+  - We admit we do not crawl the entire internet—just a bounded, honest slice.
+
+For a write-up, say what worked, what you skipped for time, and what you would do
+first with another week (usually: background jobs + caching).
+
+
+--------------------------------------------------------------------------------
+8. MAP OF MAIN FILES AND FUNCTIONS (SHORT)
+--------------------------------------------------------------------------------
+
+main.py — Command-line entry; runs pipeline; prints top creators; saves files.
+server.py — Web API: POST /api/run runs the same pipeline; serves the built UI.
+
+pipeline.run_pipeline — Full chain: queries → search → enrich → validate →
+            dedupe → summarize → score → sort → engagement quality gate (drops weak
+            rows; logs if everyone was filtered).
+pipeline._enrich_one — Sends one URL to YouTube, TikTok, or Instagram code.
+pipeline._should_skip_link — Skips bad links (wrong site, playlists, etc.).
+
+query_planner — Builds Google search strings (model + fallbacks).
+search_serpapi.search_google — Calls SerpAPI (also accepts SERPAPI_API_KEY name).
+
+apify_client — Runs Apify actors; builds TikTok/Instagram rows with posts and
+            views when available. TikTok payloads are flattened so likes/views are
+            not stuck only inside nested “stats” / “video” blocks on each item.
+
+youtube_client — Reads channel + recent videos via YouTube Data API; uses median
+            likes/comments across recent videos when there are enough samples.
+
+engagement_metrics — View counts; likes/comments from top-level and nested blocks;
+            preferred engagement rate; “is this profile empty?”; and
+            passes_engagement_quality_gate (used during validate and after scoring).
+deduper — Merges duplicate profiles; keeps the richer copy.
+extractor — LLM summary of recent content for the card blurb.
+
+scorer — Keyword score, follower buckets, engagement math (same post parser as
+            engagement_metrics; median; viral skew; views vs followers), LLM facets,
+            reason text, weighted rerank, calibration line → fit_score.
+
+output_writer — Writes creators.json and creators.csv.
+utils — Loads .env, settings, prompts; logs errors; retries flaky HTTP.
+
+
+--------------------------------------------------------------------------------
+9. PROBLEMS WE RAN INTO AND HOW WE FIXED THEM
+--------------------------------------------------------------------------------
+
+TikTok JSON hid likes under nested objects (big issue we hit in practice)
+  Symptom: follower counts and view counts looked fine, but average likes, average
+  comments, and engagement % all looked tiny (sometimes everyone under ~5% on
+  views). Often that was not “bad creators”—it was us reading the wrong fields.
+  Apify/Clockworks-style items put diggCount, playCount, etc. under stats, video,
+  videoMeta, not always on the top-level row.
+
+  What we did:
+    - When building TikTok posts, we merge those nested blocks into each post row.
+    - engagement_metrics.post_likes_comments also walks the same nested blocks and
+      picks sensible like/comment values, so even raw-shaped dicts still score
+      correctly.
+    - The scorer uses that same helper for per-post like lists (no duplicate,
+      weaker parser that misses nests).
+
+One viral video made a weak channel look amazing
+  We used medians instead of averages, added a “max vs median” penalty, nudged the
+  LLM with hints about skew, and weighted steady engagement more in the final blend.
+
+Engagement rate looked tiny (e.g. 0.2%) on a big TikTok
+  Likes ÷ all followers is a bad mental model for short video. We prefer
+  (likes + comments) ÷ views when views exist, and we store a short “basis” label
+  so the UI explains what the percent means. We also use median engagement over
+  median views when we have enough posts, which is less pessimistic than taking
+  the median of each post’s ratio when view counts are very skewed.
+
+“Don’t show me creators whose engagement still looks awful”
+  After the math fixes, we added an optional quality gate in settings.yaml
+  (engagement_quality_gate). In plain English: typical post engagement must not be
+  ridiculously low compared to follower count; for TikTok and YouTube, when we have
+  enough posts with views, we also require a minimum engagement-vs-views level
+  (stricter on TikTok than YouTube in the default YAML). Validation runs this check
+  when we decide if a profile is keepable; the pipeline runs it again after scoring
+  so nothing slips through with mismatched numbers.
+
+Fake or empty profiles in results
+  We drop profiles that look like failed scrapes. TikTok rows were fixed so each
+  video keeps its own likes/views in one record.
+
+SerpAPI key name confusion
+  Code accepts SERPAPI_API_KEY as well as SERPAPI_KEY. We clear errors.log at the
+  start of each run so old errors are not confused with the latest run.
+
+YouTube missing stats / 403 errors
+  Usually API key restrictions or quota. Fix the Google Cloud setup; the code
+  only logs the error body.
+
+YouTube playlist links in Google results
+  Skipped—they are not creator channels.
+
+API key pasted in chat
+  Treat as leaked: rotate the key; only use .env locally.
+
+“Micro creators” vs exact follower ranges
+  Parsing understands phrases like “under 50k.” The word “micro” alone may not set
+  a number—some rules are soft penalties in scoring, not hard cuts.
+
+UI needed a clear “why this creator”
+  Cards show a labeled block; the table has a Reason column; metrics can show how
+  engagement was calculated (including friendly text for newer “basis” values such
+  as median engagement over median views).
+
+Visual polish
+  Dark theme, glow, pill search bar, nicer cards after results.
+
+
+--------------------------------------------------------------------------------
+10. HOW SCORING EVOLVED (STEP BY STEP)
+--------------------------------------------------------------------------------
+
+1) Started with adding up rubric buckets to ~100.
+2) Split “keyword match” from “model relevance” so both are visible and capped.
+3) Switched engagement toward medians and added viral-skew penalty.
+4) Added views-based engagement when the data has view counts.
+5) Added weighted rerank so the headline score matches what you care about (more
+   weight on engagement in YAML).
+6) Added a simple calibration line so scores land in a friendly range across runs.
+7) Stored extra fields in score_breakdown so nothing feels like a black box.
+8) Fixed TikTok nested-field reads; aligned scorer with engagement_metrics parser;
+   median engagement over median views where possible; YouTube median post stats.
+9) Added engagement_quality_gate + slightly higher recall limits so strict quality
+   does not always return an empty list.
+
+
+--------------------------------------------------------------------------------
+11. WHY INSTAGRAM IS EASIER TO PASS THAN TIKTOK / YOUTUBE
+--------------------------------------------------------------------------------
+
+We tried requiring “two posts with view counts” for every platform. That works
+well for TikTok (views usually exist) and YouTube (API gives views).
+
+On Instagram, many posts are photos. View counts are often missing. If we kept the
+strict rule, we would throw away lots of real Instagram accounts that still have
+followers, likes, comments, and captions.
+
+So Instagram can pass with followers, or posts with text/likes/comments, or a
+strong bio—views are a bonus, not always required.
+
+
+--------------------------------------------------------------------------------
+12. SMALL EXTRAS WORTH MENTIONING
+--------------------------------------------------------------------------------
+
+  - If the first search wave is thin, we relax platform filters and/or run extra
+    recall queries before stopping.
+  - Deduper keeps the duplicate row that has more filled-in fields.
+  - TikTok asks for more posts per run so medians are stabler.
+  - Local dev uses Vite proxy; production builds static files and FastAPI serves them.
+  - Cards still show the rubric breakdown for anyone grading transparency.
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
