@@ -259,20 +259,58 @@ def passes_user_prompt_metric_floors(
     constraints: Dict[str, Any],
 ) -> bool:
     """
-    When parse_query_constraints found min avg likes, min avg comments, or min engagement rate
-    in the user's text, drop creators who do not meet them (after scoring sets engagement_rate).
+    Hard filters from the user query (regex + optional LLM).
+
+    For any bound the user specified, the creator must have that metric present (when a min or
+    max applies) and satisfy all intervals: followers, avg likes, avg comments, engagement rate.
     """
+    min_f = constraints.get("min_followers")
+    max_f = constraints.get("max_followers")
+    if min_f is not None or max_f is not None:
+        fc = c.follower_count
+        if fc is None:
+            return False
+        try:
+            fc_i = int(fc)
+        except (TypeError, ValueError):
+            return False
+        if min_f is not None and fc_i < int(min_f):
+            return False
+        if max_f is not None and fc_i > int(max_f):
+            return False
+
     min_l = constraints.get("min_avg_likes")
-    if min_l is not None:
-        if c.avg_likes is None or float(c.avg_likes) < float(min_l):
+    max_l = constraints.get("max_avg_likes")
+    if min_l is not None or max_l is not None:
+        if c.avg_likes is None:
             return False
+        al = float(c.avg_likes)
+        if min_l is not None and al < float(min_l):
+            return False
+        if max_l is not None and al > float(max_l):
+            return False
+
     min_c = constraints.get("min_avg_comments")
-    if min_c is not None:
-        if c.avg_comments is None or float(c.avg_comments or 0) < float(min_c):
+    max_c = constraints.get("max_avg_comments")
+    if min_c is not None or max_c is not None:
+        ac = c.avg_comments
+        if ac is None:
             return False
+        ac_f = float(ac)
+        if min_c is not None and ac_f < float(min_c):
+            return False
+        if max_c is not None and ac_f > float(max_c):
+            return False
+
     min_er = constraints.get("min_engagement_rate")
-    if min_er is not None:
-        if c.engagement_rate is None or float(c.engagement_rate) < float(min_er):
+    max_er = constraints.get("max_engagement_rate")
+    if min_er is not None or max_er is not None:
+        if c.engagement_rate is None:
+            return False
+        er = float(c.engagement_rate)
+        if min_er is not None and er < float(min_er):
+            return False
+        if max_er is not None and er > float(max_er):
             return False
     return True
 

@@ -149,8 +149,17 @@ def run_pipeline(user_query: str) -> List[CreatorCandidate]:
     if len(candidates) < min_target:
         relaxed = copy.deepcopy(constraints)
         relaxed["platforms"] = []
-        relaxed["min_followers"] = None
-        relaxed["max_followers"] = None
+        for _k in (
+            "min_followers",
+            "max_followers",
+            "min_avg_likes",
+            "max_avg_likes",
+            "min_avg_comments",
+            "max_avg_comments",
+            "min_engagement_rate",
+            "max_engagement_rate",
+        ):
+            relaxed[_k] = None
         active_constraints = relaxed
         q2 = generate_search_queries(user_query, relaxed, fallback=True)
         collect(q2, relaxed, per_phase_q)
@@ -186,13 +195,13 @@ def run_pipeline(user_query: str) -> List[CreatorCandidate]:
     gated = [c for c in gated if passes_user_prompt_metric_floors(c, constraints)]
     if len(gated) < before_prompt:
         logging.info(
-            "User prompt metric floors (avg likes/comments / engagement) kept %d / %d creators",
+            "User prompt hard filters (followers / avg likes / comments / engagement) kept %d / %d creators",
             len(gated),
             before_prompt,
         )
     if not gated:
         logging.warning(
             "All creators were filtered (engagement_quality_gate, headline_engagement_floor, "
-            "and/or user prompt metric floors); relax config/settings.yaml or broaden the query"
+            "and/or user prompt hard filters); relax config/settings.yaml or broaden the query"
         )
     return gated
